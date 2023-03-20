@@ -18,22 +18,58 @@ Finally, use LINQ to implement a method that returns all accounts with a balance
 using System;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Xml.Linq;
 
 class Program
 {
     static void Main(string[] args)
     {
+
+        Console.WriteLine("Creating two accounts...");
         BankAccount account1 = new BankAccount("Judy", 100);
         BankAccount account2 = new BankAccount("Sandy");
+        Console.WriteLine("Two accounts created, ");
+        Console.WriteLine($"One with name {account1.Name}, balance {account1.Balance}, account number {account1.GetAccountNumber()}");
+        Console.WriteLine($"The other with name {account2.Name} and balance {account2.Balance}, account number {account2.GetAccountNumber()}");
+        Console.WriteLine("*****" );
 
+        Console.WriteLine("Demonstrating Deposits...");
         BankService.Deposit(-100, account1);
-        BankService.Deposit(200, account2);
-        BankService.GetBalance(account1);
-        BankService.GetReport(account1);
+        BankService.Deposit(78927492837, account1);
+        BankService.Deposit(500, account2);
+        Console.WriteLine("*****");
 
-        BankService.TransferInto(500, account1, account2);
+        Console.WriteLine("Demonstrating transfer method...");
+        BankService.TransferInto(300, account1, account2);
         BankService.TransferInto(50, account1, account2);
         BankService.GetReport(account1);
+        BankService.GetReport(account2);
+        Console.WriteLine("*****");
+
+        Console.WriteLine("Demonstrating GetBalance method on account1...");
+        BankService.GetBalance(account1);
+        Console.WriteLine("*****");
+
+        /*     Questions:
+             1. Better way to "link" account1 and account1Checking?
+             2. Accessibility concerns for some of the methods in services
+     */
+        Console.WriteLine("Creating a checking account for account1...");
+        CheckingAccount account1Checking = new CheckingAccount(account1, 200);
+        Console.WriteLine($"Checking account created: name: {account1Checking.Name}, overdraft limit: {account1Checking.OverDraftLimit} \n" +
+            $"Remaining balance: {account1Checking.Balance}, account number {account1Checking.GetAccountNumber()}");
+        Console.WriteLine("*****");
+
+        Console.WriteLine("Demonstrating spending on the checking account...");
+        CheckingService.Purchase(300, account1Checking);
+        Console.WriteLine("###");
+        CheckingService.Purchase(200, account1Checking);
+        Console.WriteLine("###");
+        CheckingService.Purchase(200, account1Checking);
+
+
+
+
 
     }
 }
@@ -42,7 +78,6 @@ public class BankAccount
 {
     private static int currentNumberOfCustomers = 0;
     private int accountNumber = ++ currentNumberOfCustomers;
-    public int AccountNumber => accountNumber;
     public string Name { get; set; }
     public double Balance { get; set; }
     
@@ -51,7 +86,12 @@ public class BankAccount
         Name = name;
         Balance = (double)balance;
     }
+    public int GetAccountNumber()
+    {
+        return accountNumber;
+    }
 }
+
 
 public class BankService
 {
@@ -61,10 +101,10 @@ public class BankService
         switch (amount)
         {
             case <= 0:
-                Console.WriteLine("For deposit, Please input a positive number");
+                Console.WriteLine($"Input {amount} is negative. For deposit, Please input a positive number");
                 break;
             case >= 5000000:
-                Console.WriteLine("Small bank, not capable of handling large amount of deposit");
+                Console.WriteLine($"Input amount {amount} too large for our small bank. Wells Fargo around the corner.");
                 break;
             default:
                 bankAccount.Balance += amount;
@@ -83,25 +123,25 @@ public class BankService
     {
         Console.WriteLine($"Current balance is {bankAccount.Balance}");
     }
-    public static void TransferInto(double amount, BankAccount bankAccount1, BankAccount bankAccount2) 
+    public static void TransferInto(double amount, BankAccount accountOut, BankAccount accountInto) 
     {
         // bankAccount2.Balance += (amount <= bankAccount1.Balance) ? amount : 0;
 
-        if (amount > bankAccount1.Balance)
+        if (amount > accountOut.Balance)
         {
             Console.WriteLine("Insufficient funds, not able to transfer");
         }
         else
         {
-            bankAccount2.Balance += amount;
-            bankAccount1.Balance -= amount;
+            accountInto.Balance += amount;
+            accountOut.Balance -= amount;
             Console.WriteLine("Transfer completed.");
         }
     }
     public static void GetReport(BankAccount bankAccount)
     {
         int reportNumber = ++ reportCount;
-        string fileName = DateTime.Now.ToString("MMddyyyyHHmmss") + "_" + bankAccount.AccountNumber + "_" + reportNumber;
+        string fileName = DateTime.Now.ToString("MMddyyyyHHmmss") + "_" + bankAccount.GetAccountNumber() + "_" + reportNumber + ".txt";
         string folderName = "Report";
 
             if (!Directory.Exists(folderName)) 
@@ -114,7 +154,7 @@ public class BankService
 
 
         StringBuilder stringBuilder = new StringBuilder();
-        stringBuilder.AppendLine($"Account Number: {bankAccount.AccountNumber}");
+        stringBuilder.AppendLine($"Account Number: {bankAccount.GetAccountNumber()}");
         stringBuilder.AppendLine($"Name: {bankAccount.Name}");
         stringBuilder.AppendLine($"Balance: {bankAccount.Balance}");
         stringBuilder.AppendLine($"Date: " + DateTime.Now.ToString());
@@ -123,8 +163,68 @@ public class BankService
         {
             writer.Write(stringBuilder.ToString());
         }
-        Console.WriteLine($"Report generated for account {bankAccount.AccountNumber}");
+        Console.WriteLine($"Report generated for account {bankAccount.GetAccountNumber()}");
     }
 
 }
 
+// Assume:
+// 1. one needs a bank account to create a checking account.
+// 2. Checking Account has a new account number
+public class CheckingAccount : BankAccount
+{
+    public double OverDraftLimit { get; set; }
+    public double StandingBalance { get; set; } = 0;
+    public CheckingAccount(BankAccount bankaccount, double overDraftLimit) : base(bankaccount.Name, bankaccount.Balance)
+    {
+        OverDraftLimit = overDraftLimit;
+    }
+}
+
+public class CheckingService : BankService
+{
+    public static void Purchase(double amount, CheckingAccount checkingAccount)
+    {
+        if (amount > checkingAccount.OverDraftLimit)
+        {
+            Console.WriteLine($"Error. Amount {amount} exceeds overdraft limit");
+            return;
+        }
+
+        else if (amount + checkingAccount.StandingBalance> checkingAccount.Balance + checkingAccount.OverDraftLimit) {
+            Console.WriteLine($"Error. Amount {amount} will result in insufficient fund in balance");
+            return;
+        }
+        else
+        {
+            checkingAccount.StandingBalance += amount;
+            Console.WriteLine($"Spending of {amount} success. Now checking has running balance of {checkingAccount.StandingBalance}, and remaining balance of {checkingAccount.Balance}");
+        }
+    }
+
+    public static void Settle(CheckingAccount checkingAccount)
+    {
+        if (checkingAccount.StandingBalance < checkingAccount.Balance)
+        {
+            checkingAccount.Balance -= checkingAccount.StandingBalance;
+            checkingAccount.StandingBalance = 0;
+            Console.WriteLine($"Settled, the remaining balance is {checkingAccount.Balance}");
+        }
+        else
+        {
+            checkingAccount.Balance = 0;
+            checkingAccount.StandingBalance -= checkingAccount.Balance;
+            Console.WriteLine($"UNRESOLVED, the remaining standing balance is {checkingAccount.StandingBalance}");
+        }
+    }
+}
+
+
+
+
+/*here is a class of bankaccount in c#. I want to design a subclass, CheckingAccount that inherits the bankaccount, and has
+
+2.inherits name from the main account
+3. balance: the amount that is currently spent, which should not exceed limit
+4. methods: a) spent money(to sound more professional, is it "draft" money to name the method?), which means to spend some money within limit
+b) resolve, which means to pay for the standing balance in whole or in part if money not enough*/
