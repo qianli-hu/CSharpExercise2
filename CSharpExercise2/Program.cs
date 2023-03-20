@@ -66,11 +66,6 @@ class Program
         CheckingService.Purchase(200, account1Checking);
         Console.WriteLine("###");
         CheckingService.Purchase(200, account1Checking);
-
-
-
-
-
     }
 }
 
@@ -218,13 +213,3 @@ public class CheckingService : BankService
         }
     }
 }
-
-
-
-
-/*here is a class of bankaccount in c#. I want to design a subclass, CheckingAccount that inherits the bankaccount, and has
-
-2.inherits name from the main account
-3. balance: the amount that is currently spent, which should not exceed limit
-4. methods: a) spent money(to sound more professional, is it "draft" money to name the method?), which means to spend some money within limit
-b) resolve, which means to pay for the standing balance in whole or in part if money not enough*/
