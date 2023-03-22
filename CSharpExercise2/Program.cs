@@ -18,80 +18,40 @@ Finally, use LINQ to implement a method that returns all accounts with a balance
 using System;
 using System.Runtime.CompilerServices;
 using System.Text;
-using System.Xml.Linq;
+using System.Linq;
 
 class Program
 {
     static void Main(string[] args)
     {
-
-        Console.WriteLine("Creating two accounts...");
-        BankAccount account1 = new BankAccount("Judy", 100);
-        BankAccount account2 = new BankAccount("Sandy");
-        Console.WriteLine("Two accounts created, ");
-        Console.WriteLine($"One with name {account1.Name}, balance {account1.Balance}, account number {account1.GetAccountNumber()}");
-        Console.WriteLine($"The other with name {account2.Name} and balance {account2.Balance}, account number {account2.GetAccountNumber()}");
-        Console.WriteLine("*****" );
-
-        Console.WriteLine("Demonstrating Deposits...");
-        BankService.Deposit(-100, account1);
-        BankService.Deposit(78927492837, account1);
-        BankService.Deposit(500, account2);
-        Console.WriteLine("*****");
-
-        Console.WriteLine("Demonstrating transfer method...");
-        BankService.TransferInto(300, account1, account2);
-        BankService.TransferInto(50, account1, account2);
-        BankService.GetReport(account1);
-        BankService.GetReport(account2);
-        Console.WriteLine("*****");
-
-        Console.WriteLine("Demonstrating GetBalance method on account1...");
-        BankService.GetBalance(account1);
-        Console.WriteLine("*****");
-
-        /*     Questions:
-             1. Better way to "link" account1 and account1Checking?
-             2. Accessibility concerns for some of the methods in services
-     */
-        Console.WriteLine("Creating a checking account for account1...");
-        CheckingAccount account1Checking = new CheckingAccount(account1, 200);
-        Console.WriteLine($"Checking account created: name: {account1Checking.Name}, overdraft limit: {account1Checking.OverDraftLimit} \n" +
-            $"Remaining balance: {account1Checking.Balance}, account number {account1Checking.GetAccountNumber()}");
-        Console.WriteLine("*****");
-
-        Console.WriteLine("Demonstrating spending on the checking account...");
-        CheckingService.Purchase(300, account1Checking);
-        Console.WriteLine("###");
-        CheckingService.Purchase(200, account1Checking);
-        Console.WriteLine("###");
-        CheckingService.Purchase(200, account1Checking);
     }
 }
 
-public class BankAccount
+public abstract class BankAccount
 {
-    private static int currentNumberOfCustomers = 0;
-    private int accountNumber = ++ currentNumberOfCustomers;
     public string Name { get; set; }
-    public double Balance { get; set; }
-    
-    public BankAccount(string name, double? balance = 0)
-    {
+    public string PhoneNumber { get; set; }
+    public abstract string GetAccountNumber();
+}
+
+public class SavingAccount : BankAccount
+{
+    private static int numberOfCustomers = 0;
+    private static string accountType = "Saving";
+
+    public double Balance { get; protected set; } = 0;
+
+    public SavingAccount(string name, string? phoneNumber, double? balance) { 
         Name = name;
+        PhoneNumber = (string)phoneNumber;
         Balance = (double)balance;
     }
-    public int GetAccountNumber()
+    public override string GetAccountNumber()
     {
-        return accountNumber;
+        numberOfCustomers++;
+        return accountType + numberOfCustomers.ToString();
     }
-}
-
-
-public class BankService
-{
-    static int reportCount = 0;
-    public static void Deposit(double amount, BankAccount bankAccount)
+    public void Deposit(double amount)
     {
         switch (amount)
         {
@@ -102,79 +62,68 @@ public class BankService
                 Console.WriteLine($"Input amount {amount} too large for our small bank. Wells Fargo around the corner.");
                 break;
             default:
-                bankAccount.Balance += amount;
-                Console.WriteLine($"After a deposit of {amount}, the remaining balance is {bankAccount.Balance}");
+                Balance += amount;
+                Console.WriteLine($"After a deposit of {amount}, the remaining balance is {Balance}");
                 break;
 
         }
     }
-    public static void WithDrawl(double amount, BankAccount bankAccount)
+    public void WithDrawl(double amount)
     {
-        bankAccount.Balance -= (bankAccount.Balance > amount) ? amount : 0;
-        Console.WriteLine($"After a withdrawl of {amount}, the remaining balance is {bankAccount.Balance}");
+       /* bankAccount.Balance -= (bankAccount.Balance > amount) ? amount : 0;
+        Console.WriteLine($"After a withdrawl of {amount}, the remaining balance is {bankAccount.Balance}");*/
+       if ( amount > Balance ) 
+        {
+            Console.WriteLine($"Withdrawl amount {amount} exceeds the current balance {Balance}");
+        }
+       else 
+        {
+            Balance -= amount;
+            Console.WriteLine($"Withdrawl amount {amount} successful; remaining balance {Balance}");
+        }
     }
-    
-    public static void GetBalance(BankAccount bankAccount) 
+    public void TransferInto(double amount, SavingAccount recipient)
     {
-        Console.WriteLine($"Current balance is {bankAccount.Balance}");
-    }
-    public static void TransferInto(double amount, BankAccount accountOut, BankAccount accountInto) 
-    {
-        // bankAccount2.Balance += (amount <= bankAccount1.Balance) ? amount : 0;
-
-        if (amount > accountOut.Balance)
+        if (amount > Balance)
         {
             Console.WriteLine("Insufficient funds, not able to transfer");
         }
         else
         {
-            accountInto.Balance += amount;
-            accountOut.Balance -= amount;
-            Console.WriteLine("Transfer completed.");
+            recipient.Balance += amount;
+            Balance -= amount;
+            Console.WriteLine($"Transfer completed. Now sender has balance {Balance},\n" +
+                $"recipient has balance {recipient.Balance}");
         }
     }
-    public static void GetReport(BankAccount bankAccount)
+}
+
+public class CheckingAccount : BankAccount
+{
+    private static int numberOfCustomers = 0;
+    private static string accountType = "Saving";
+    public double OverDraftLimit { get; protected set; } = 0;
+
+    public CheckingAccount(string name, string? phoneNumber, double overDraftLimit)
     {
-        int reportNumber = ++ reportCount;
-        string fileName = DateTime.Now.ToString("MMddyyyyHHmmss") + "_" + bankAccount.GetAccountNumber() + "_" + reportNumber + ".txt";
-        string folderName = "Report";
-
-            if (!Directory.Exists(folderName)) 
-            {
-                Directory.CreateDirectory(folderName);
-            }
-
-        string filePath = Path.Combine(folderName, fileName);
-
-
-
-        StringBuilder stringBuilder = new StringBuilder();
-        stringBuilder.AppendLine($"Account Number: {bankAccount.GetAccountNumber()}");
-        stringBuilder.AppendLine($"Name: {bankAccount.Name}");
-        stringBuilder.AppendLine($"Balance: {bankAccount.Balance}");
-        stringBuilder.AppendLine($"Date: " + DateTime.Now.ToString());
-
-        using (StreamWriter writer = File.CreateText(filePath))
-        {
-            writer.Write(stringBuilder.ToString());
-        }
-        Console.WriteLine($"Report generated for account {bankAccount.GetAccountNumber()}");
+        Name = name;
+        PhoneNumber = (string)phoneNumber;
+        OverDraftLimit = overDraftLimit;
     }
+
+    public override string GetAccountNumber()
+    {
+        numberOfCustomers++;
+        return accountType + numberOfCustomers.ToString();
+    }
+
 
 }
 
 // Assume:
 // 1. one needs a bank account to create a checking account.
 // 2. Checking Account has a new account number
-public class CheckingAccount : BankAccount
-{
-    public double OverDraftLimit { get; set; }
-    public double StandingBalance { get; set; } = 0;
-    public CheckingAccount(BankAccount bankaccount, double overDraftLimit) : base(bankaccount.Name, bankaccount.Balance)
-    {
-        OverDraftLimit = overDraftLimit;
-    }
-}
+
 
 public class CheckingService : BankService
 {
