@@ -24,6 +24,30 @@ class Program
 {
     static void Main(string[] args)
     {
+        // Some examples to test the saving & checking account
+        SavingAccount savingAccount1 = new SavingAccount("John", "555-1234", 1000);
+        SavingAccount savingAccount2 = new SavingAccount("John", "333-1234");
+        Console.WriteLine($"Accounts created;\n One account number {savingAccount1.AccountNumber}, another {savingAccount2.AccountNumber}");
+
+        Console.WriteLine("\nPlease write your deposit amount: ");
+        double deposit = double.Parse(Console.ReadLine());
+        savingAccount1.Deposit(deposit);
+
+        Console.Write("\nTesting transfer...");
+        savingAccount1.TransferInto(2000, savingAccount2);
+
+        CheckingAccount checkingAccount1 = new CheckingAccount("Paul", 300);
+        Console.WriteLine($"\nChecking account created, with account number {checkingAccount1.AccountNumber} and limit {checkingAccount1.OverDraftLimit}");
+
+        Console.WriteLine("\nTesting purchase and pay");
+        checkingAccount1.Purchase(500);
+        checkingAccount1.Purchase(200);
+        checkingAccount1.Pay(50);
+        double change = checkingAccount1.Pay(300);
+        Console.WriteLine($"After payment, the change for the payment is {change}");
+
+
+
     }
 }
 
@@ -31,69 +55,62 @@ public abstract class BankAccount
 {
     public string Name { get; set; }
     public string PhoneNumber { get; set; }
-    public abstract string GetAccountNumber();
 }
 
 public class SavingAccount : BankAccount
 {
     private static int numberOfCustomers = 0;
-    private static string accountType = "Saving";
+    private static string accountType = "Saving ";
+    public double Balance { get; protected set; }
+    public string AccountNumber { get; }
 
-    public double Balance { get; protected set; } = 0;
-
-    public SavingAccount(string name, string? phoneNumber, double? balance) { 
+    public SavingAccount(string name, string? phoneNumber, double? balance = 0) {
+        AccountNumber = accountType + (++numberOfCustomers).ToString();
         Name = name;
         PhoneNumber = (string)phoneNumber;
         Balance = (double)balance;
-    }
-    public override string GetAccountNumber()
-    {
-        numberOfCustomers++;
-        return accountType + numberOfCustomers.ToString();
     }
     public void Deposit(double amount)
     {
         switch (amount)
         {
             case <= 0:
-                Console.WriteLine($"Input {amount} is negative. For deposit, Please input a positive number");
+                Console.WriteLine($"Input {amount} is negative. Please deposit a positive amount.");
                 break;
             case >= 5000000:
-                Console.WriteLine($"Input amount {amount} too large for our small bank. Wells Fargo around the corner.");
+                Console.WriteLine($"Input amount {amount} too large for our small bank.");
                 break;
             default:
-                Balance += amount;
-                Console.WriteLine($"After a deposit of {amount}, the remaining balance is {Balance}");
+                this.Balance += amount;
+                Console.WriteLine($"After a deposit of {amount}, the remaining balance is {this.Balance}.");
                 break;
 
         }
     }
     public void WithDrawl(double amount)
     {
-       /* bankAccount.Balance -= (bankAccount.Balance > amount) ? amount : 0;
-        Console.WriteLine($"After a withdrawl of {amount}, the remaining balance is {bankAccount.Balance}");*/
-       if ( amount > Balance ) 
+       if ( amount > this.Balance ) 
         {
-            Console.WriteLine($"Withdrawl amount {amount} exceeds the current balance {Balance}");
+            Console.WriteLine($"Withdrawl amount {amount} exceeds the current balance {this.Balance}.");
         }
        else 
         {
-            Balance -= amount;
-            Console.WriteLine($"Withdrawl amount {amount} successful; remaining balance {Balance}");
+            this.Balance -= amount;
+            Console.WriteLine($"Withdrawl of amount {amount} successful; remaining balance {this.Balance}.");
         }
     }
     public void TransferInto(double amount, SavingAccount recipient)
     {
-        if (amount > Balance)
+        if (amount > this.Balance)
         {
-            Console.WriteLine("Insufficient funds, not able to transfer");
+            Console.WriteLine("Insufficient funds, not able to transfer.");
         }
         else
         {
             recipient.Balance += amount;
-            Balance -= amount;
-            Console.WriteLine($"Transfer completed. Now sender has balance {Balance},\n" +
-                $"recipient has balance {recipient.Balance}");
+            this.Balance -= amount;
+            Console.WriteLine($"Transfer completed. Now sender has balance {this.Balance},\n" +
+                $"recipient has balance {recipient.Balance}.");
         }
     }
 }
@@ -101,64 +118,50 @@ public class SavingAccount : BankAccount
 public class CheckingAccount : BankAccount
 {
     private static int numberOfCustomers = 0;
-    private static string accountType = "Saving";
+    private static string accountType = "Checking ";
     public double OverDraftLimit { get; protected set; } = 0;
-
-    public CheckingAccount(string name, string? phoneNumber, double overDraftLimit)
+    public double StandingBalance { get; protected set; } = 0;
+    public double RemainingBalance
     {
+        get { return this.OverDraftLimit - this.StandingBalance; }
+    }
+    public string AccountNumber { get; }
+    public CheckingAccount(string name, double overDraftLimit, string? phoneNumber = null)
+    {
+        AccountNumber = accountType + (++numberOfCustomers).ToString();
         Name = name;
         PhoneNumber = (string)phoneNumber;
-        OverDraftLimit = overDraftLimit;
+        OverDraftLimit = (double)overDraftLimit;
     }
 
-    public override string GetAccountNumber()
+    public void Purchase(double amount)
     {
-        numberOfCustomers++;
-        return accountType + numberOfCustomers.ToString();
-    }
-
-
-}
-
-// Assume:
-// 1. one needs a bank account to create a checking account.
-// 2. Checking Account has a new account number
-
-
-public class CheckingService : BankService
-{
-    public static void Purchase(double amount, CheckingAccount checkingAccount)
-    {
-        if (amount > checkingAccount.OverDraftLimit)
+        if (amount > this.RemainingBalance)
         {
-            Console.WriteLine($"Error. Amount {amount} exceeds overdraft limit");
-            return;
-        }
-
-        else if (amount + checkingAccount.StandingBalance> checkingAccount.Balance + checkingAccount.OverDraftLimit) {
-            Console.WriteLine($"Error. Amount {amount} will result in insufficient fund in balance");
-            return;
+            Console.WriteLine($"Purchase amount {amount} exceeds current remaining balance {this.RemainingBalance}.");
         }
         else
         {
-            checkingAccount.StandingBalance += amount;
-            Console.WriteLine($"Spending of {amount} success. Now checking has running balance of {checkingAccount.StandingBalance}, and remaining balance of {checkingAccount.Balance}");
+            this.StandingBalance += amount;
+            Console.WriteLine($"Purchase amount { amount} successful; current remaining balance {this.RemainingBalance}.");
         }
     }
 
-    public static void Settle(CheckingAccount checkingAccount)
+    public double Pay(double amount)
     {
-        if (checkingAccount.StandingBalance < checkingAccount.Balance)
+        if (amount >= this.StandingBalance)
         {
-            checkingAccount.Balance -= checkingAccount.StandingBalance;
-            checkingAccount.StandingBalance = 0;
-            Console.WriteLine($"Settled, the remaining balance is {checkingAccount.Balance}");
+            double change = amount - this.StandingBalance;
+            this.StandingBalance = 0;
+            Console.WriteLine("Payment in full.");
+            return change;
         }
         else
         {
-            checkingAccount.Balance = 0;
-            checkingAccount.StandingBalance -= checkingAccount.Balance;
-            Console.WriteLine($"UNRESOLVED, the remaining standing balance is {checkingAccount.StandingBalance}");
+            this.StandingBalance-= amount;
+            Console.WriteLine($"Payment of {amount}; standing balance is {this.StandingBalance}.");
+            return 0;
         }
     }
 }
+
